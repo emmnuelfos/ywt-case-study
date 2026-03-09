@@ -139,9 +139,9 @@
         async function boot() {
             // 1. Load Rive runtime
             var cdns = [
-                'https://unpkg.com/@rive-app/canvas@2.33.1/rive.js',
-                'https://cdn.jsdelivr.net/npm/@rive-app/canvas@2.33.1/rive.js',
-                'https://unpkg.com/@rive-app/canvas/rive.js'
+                'https://unpkg.com/@rive-app/webgl@2.33.1/rive.js',
+                'https://cdn.jsdelivr.net/npm/@rive-app/webgl@2.33.1/rive.js',
+                'https://unpkg.com/@rive-app/webgl/rive.js'
             ];
             var loaded = false;
             for (var i = 0; i < cdns.length; i++) {
@@ -157,18 +157,17 @@
             }
             log('Runtime loaded. Checking .riv file...');
 
-            // 2. Fetch .riv as ArrayBuffer (avoids MIME type issues on GitHub Pages)
-            var rivBuffer;
+            // 2. Skip manual fetch — let Rive load the file via src (more reliable for large files)
+            log('Checking .riv file exists...');
             try {
-                var resp = await fetch(RIV_FILE);
+                var resp = await fetch(RIV_FILE, { method: 'HEAD' });
                 if (!resp.ok) {
-                    showError('Cannot find .riv file (HTTP ' + resp.status + ').<br>Make sure <strong>' + RIV_FILE + '</strong> is in the repo root.');
+                    showError('Cannot find .riv file (HTTP ' + resp.status + ').');
                     return;
                 }
-                rivBuffer = await resp.arrayBuffer();
-                log('File loaded (' + Math.round(rivBuffer.byteLength / 1024 / 1024 * 10) / 10 + ' MB). Initializing...');
+                log('File found. Loading via Rive WebGL runtime...');
             } catch(e) {
-                showError('Network error loading .riv file:<br>' + e.message);
+                showError('Network error: ' + e.message);
                 return;
             }
 
@@ -177,32 +176,22 @@
             canvas.width = wrapper.offsetWidth * (window.devicePixelRatio || 1);
             canvas.height = wrapper.offsetHeight * (window.devicePixelRatio || 1);
 
-            // 4. Init Rive — load first, then start state machine
+            // 4. Init Rive with src (lets runtime handle the fetch + parsing)
             var prevSlideInput = null;
             var nextSlideInput = null;
 
             try {
-                log('Creating Rive instance (no SM yet)...');
+                log('Creating Rive instance with WebGL...');
                 riveInstance = new rive.Rive({
-                    buffer: new Uint8Array(rivBuffer),
+                    src: RIV_FILE,
                     canvas: canvas,
-                    autoplay: false,
+                    autoplay: true,
+                    stateMachines: 'State machine',
                     fit: rive.Fit.Contain,
                     alignment: rive.Alignment.Center,
                     onLoad: function() {
-                        log('File parsed! Starting state machine...');
+                        log('Animation loaded and playing!');
                         riveInstance.resizeDrawingSurfaceToCanvas();
-
-                        // Now play the state machine after load
-                        try {
-                            riveInstance.play('State machine');
-                            log('State machine started!');
-                        } catch(e) {
-                            log('SM play error, trying alternatives...');
-                            // Try playing first animation instead
-                            try { riveInstance.play('loading animation'); } catch(e2) {}
-                            try { riveInstance.play(); } catch(e3) {}
-                        }
 
                         statusEl.style.display = 'none';
                         controlsEl.style.display = 'flex';
@@ -211,19 +200,17 @@
                         try {
                             var inputs = riveInstance.stateMachineInputs('State machine');
                             if (inputs && inputs.length > 0) {
-                                log('Inputs found: ' + inputs.map(function(i){ return i.name; }).join(', '));
+                                log('Inputs: ' + inputs.map(function(i){ return i.name; }).join(', '));
                                 prevSlideInput = inputs.find(function(i){ return i.name === 'prevSlide'; });
                                 nextSlideInput = inputs.find(function(i){ return i.name === 'nextSlide'; });
-                            } else {
-                                log('No inputs found');
                             }
                         } catch(e) {
-                            log('Could not get inputs: ' + e.message);
+                            log('Inputs error: ' + e.message);
                         }
                         updateSlide();
                     },
                     onLoadError: function(e) {
-                        showError('Animation failed to load.<br>The file may be too large or corrupted.');
+                        showError('Animation failed to load. Check console.');
                         console.error('onLoadError:', e);
                     }
                 });
