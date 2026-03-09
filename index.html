@@ -106,11 +106,23 @@
         function updateSlide() {
             slideIndicator.textContent = 'Slide ' + currentSlide + ' / ' + TOTAL_SLIDES;
         }
-        function goToSlide(num) {
-            if (num < 1 || num > TOTAL_SLIDES) return;
-            currentSlide = num;
-            updateSlide();
-            if (slideInput) slideInput.value = currentSlide;
+        function goToSlide(direction) {
+            if (direction === 'next' && currentSlide < TOTAL_SLIDES) {
+                currentSlide++;
+                updateSlide();
+                if (nextSlideInput) {
+                    nextSlideInput.value = true;
+                    // Reset after a brief moment so it can be triggered again
+                    setTimeout(function(){ nextSlideInput.value = false; }, 100);
+                }
+            } else if (direction === 'prev' && currentSlide > 1) {
+                currentSlide--;
+                updateSlide();
+                if (prevSlideInput) {
+                    prevSlideInput.value = true;
+                    setTimeout(function(){ prevSlideInput.value = false; }, 100);
+                }
+            }
         }
 
         function loadScript(url) {
@@ -165,84 +177,55 @@
             canvas.width = wrapper.offsetWidth * (window.devicePixelRatio || 1);
             canvas.height = wrapper.offsetHeight * (window.devicePixelRatio || 1);
 
-            // 4. Init Rive — try multiple state machine names
-            var smNames = [STATE_MACHINE, 'State Machine', 'State Machine 1', 'StateMachine'];
-            var initSuccess = false;
-
-            function tryInit(smName, useStateMachine) {
-                return new Promise(function(resolve) {
-                    log('Trying' + (useStateMachine ? ': "' + smName + '"' : ' without state machine') + '...');
-                    try {
-                        var config = {
-                            buffer: new Uint8Array(rivBuffer),
-                            canvas: canvas,
-                            autoplay: true,
-                            fit: rive.Fit.Contain,
-                            alignment: rive.Alignment.Center,
-                            onLoad: function() {
-                                if (initSuccess) return;
-                                initSuccess = true;
-                                log('Playing!' + (useStateMachine ? ' (SM: "' + smName + '")' : ' (no SM)'));
-                                statusEl.style.display = 'none';
-                                controlsEl.style.display = 'flex';
-                                riveInstance.resizeDrawingSurfaceToCanvas();
-
-                                if (useStateMachine) {
-                                    try {
-                                        var inputs = riveInstance.stateMachineInputs(smName);
-                                        if (inputs && inputs.length > 0) {
-                                            log('Inputs: ' + inputs.map(function(i){return i.name;}).join(', '));
-                                            slideInput = inputs.find(function(i){return i.name === 'slide';});
-                                        }
-                                    } catch(e) {}
-                                }
-                                updateSlide();
-                                resolve(true);
-                            },
-                            onLoadError: function(e) {
-                                log('Failed: ' + (smName || 'no SM'));
-                                resolve(false);
-                            }
-                        };
-                        if (useStateMachine) config.stateMachines = smName;
-                        riveInstance = new rive.Rive(config);
-
-                        // Timeout — if onLoad doesn't fire in 5 seconds, move on
-                        setTimeout(function() {
-                            if (!initSuccess) resolve(false);
-                        }, 5000);
-
-                    } catch(e) {
-                        log('Error: ' + e.message);
-                        resolve(false);
-                    }
-                });
-            }
-
-            // Try each state machine name, then try without
-            async function tryAllOptions() {
-                for (var i = 0; i < smNames.length; i++) {
-                    var result = await tryInit(smNames[i], true);
-                    if (result) return;
-                }
-                // Last resort: no state machine, just autoplay
-                var result = await tryInit('', false);
-                if (!result) {
-                    showError('Could not play animation.<br>Open browser Console (F12) for details.<br>The .riv may need a newer Rive runtime version.');
-                }
-            }
+            // 4. Init Rive with correct state machine and inputs
+            var prevSlideInput = null;
+            var nextSlideInput = null;
+            var prevHoveredInput = null;
+            var nextHoveredInput = null;
 
             try {
-                await tryAllOptions();
-                if (riveInstance) {
-                    try {
-                        riveInstance.on(rive.EventType.RiveEvent, function(event) {
-                            if (event.data.name === 'openDiscoveryCall') {
-                                window.open('https://yourwebteam.io/call', '_blank');
+                riveInstance = new rive.Rive({
+                    buffer: new Uint8Array(rivBuffer),
+                    canvas: canvas,
+                    autoplay: true,
+                    stateMachines: 'State machine',
+                    fit: rive.Fit.Contain,
+                    alignment: rive.Alignment.Center,
+                    onLoad: function() {
+                        log('Animation playing!');
+                        statusEl.style.display = 'none';
+                        controlsEl.style.display = 'flex';
+                        riveInstance.resizeDrawingSurfaceToCanvas();
+
+                        // Get state machine inputs
+                        try {
+                            var inputs = riveInstance.stateMachineInputs('State machine');
+                            if (inputs && inputs.length > 0) {
+                                log('Inputs: ' + inputs.map(function(i){ return i.name + '(' + i.type + ')'; }).join(', '));
+                                prevSlideInput = inputs.find(function(i){ return i.name === 'prevSlide'; });
+                                nextSlideInput = inputs.find(function(i){ return i.name === 'nextSlide'; });
+                                prevHoveredInput = inputs.find(function(i){ return i.name === 'prevHovered'; });
+                                nextHoveredInput = inputs.find(function(i){ return i.name === 'nextHovered'; });
                             }
-                        });
-                    } catch(e) {}
-                }
+                        } catch(e) {
+                            console.log('Inputs error:', e);
+                        }
+                        updateSlide();
+                    },
+                    onLoadError: function(e) {
+                        showError('Animation failed to load.<br>Check console for details.');
+                        console.error('onLoadError:', e);
+                    }
+                });
+
+                try {
+                    riveInstance.on(rive.EventType.RiveEvent, function(event) {
+                        if (event.data.name === 'openDiscoveryCall') {
+                            window.open('https://yourwebteam.io/call', '_blank');
+                        }
+                    });
+                } catch(e) {}
+
             } catch(e) {
                 showError('Rive init error: ' + e.message);
                 console.error(e);
@@ -252,14 +235,28 @@
         boot();
 
         // ========== CONTROLS ==========
-        document.getElementById('btn-prev').addEventListener('click', function(){ goToSlide(currentSlide - 1); });
-        document.getElementById('btn-next').addEventListener('click', function(){ goToSlide(currentSlide + 1); });
-        document.getElementById('btn-replay').addEventListener('click', function(){ goToSlide(1); });
+        document.getElementById('btn-prev').addEventListener('click', function(){ goToSlide('prev'); });
+        document.getElementById('btn-next').addEventListener('click', function(){ goToSlide('next'); });
+        document.getElementById('btn-replay').addEventListener('click', function(){
+            // Go back to slide 1 by firing prev multiple times
+            var steps = currentSlide - 1;
+            currentSlide = 1;
+            updateSlide();
+            for (var i = 0; i < steps; i++) {
+                (function(delay) {
+                    setTimeout(function(){
+                        if (prevSlideInput) {
+                            prevSlideInput.value = true;
+                            setTimeout(function(){ prevSlideInput.value = false; }, 50);
+                        }
+                    }, delay * 150);
+                })(i);
+            }
+        });
 
         document.addEventListener('keydown', function(e) {
-            if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); goToSlide(currentSlide + 1); }
-            if (e.key === 'ArrowLeft') { e.preventDefault(); goToSlide(currentSlide - 1); }
-            if (e.key === 'r' || e.key === 'R') goToSlide(1);
+            if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); goToSlide('next'); }
+            if (e.key === 'ArrowLeft') { e.preventDefault(); goToSlide('prev'); }
         });
 
         window.addEventListener('resize', function() {
