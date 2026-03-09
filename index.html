@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Case Study — YourWebTeam.io</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0A0B1A;
+            color: #ffffff;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            padding: 20px;
+        }
+
+        /* Rive canvas wrapper — maintains 16:9 */
+        .rive-wrapper {
+            position: relative;
+            width: 100%;
+            padding-bottom: 56.25%; /* 16:9 aspect ratio */
+            background: #060810;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .rive-wrapper canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Controls bar */
+        .controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .controls button {
+            background: rgba(17, 98, 236, 0.15);
+            border: 1px solid rgba(17, 98, 236, 0.3);
+            color: #09B5F1;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .controls button:hover {
+            background: rgba(17, 98, 236, 0.3);
+            border-color: #1162EC;
+        }
+
+        .controls button.active {
+            background: #1162EC;
+            color: #fff;
+            border-color: #1162EC;
+        }
+
+        .slide-indicator {
+            color: #8892A4;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 24px;
+            text-align: center;
+            opacity: 0.4;
+            font-size: 12px;
+            color: #8892A4;
+        }
+
+        .footer a {
+            color: #09B5F1;
+            text-decoration: none;
+        }
+
+        /* Loading state */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #8892A4;
+            font-size: 14px;
+            z-index: 10;
+        }
+
+        .loading-spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid rgba(17, 98, 236, 0.2);
+            border-top-color: #1162EC;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 12px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Error state */
+        .error {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #E61D6B;
+            font-size: 14px;
+            text-align: center;
+            z-index: 10;
+            display: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 12px;
+            }
+            .controls button {
+                padding: 8px 14px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="rive-wrapper">
+            <div class="loading" id="loading">
+                <div class="loading-spinner"></div>
+                Loading presentation...
+            </div>
+            <div class="error" id="error">
+                Failed to load animation.<br>
+                Please refresh the page.
+            </div>
+            <canvas id="rive-canvas"></canvas>
+        </div>
+
+        <div class="controls" id="controls" style="display:none;">
+            <button id="btn-prev">← Prev</button>
+            <span class="slide-indicator" id="slide-indicator">Slide 1 / 11</span>
+            <button id="btn-next">Next →</button>
+            <button id="btn-replay">↻ Replay</button>
+        </div>
+
+        <div class="footer">
+            <a href="https://yourwebteam.io" target="_blank">YourWebTeam.io</a> — WordPress → Headless Transformations
+        </div>
+    </div>
+
+    <!-- Rive WASM Runtime -->
+    <script src="https://unpkg.com/@rive-app/canvas@2.21.6/rive.js"></script>
+
+    <script>
+        const TOTAL_SLIDES = 11;
+        let currentSlide = 1;
+        let riveInstance = null;
+        let stateMachineInputs = null;
+        let slideInput = null;
+
+        const canvas = document.getElementById('rive-canvas');
+        const loading = document.getElementById('loading');
+        const error = document.getElementById('error');
+        const controls = document.getElementById('controls');
+        const slideIndicator = document.getElementById('slide-indicator');
+
+        function updateSlideIndicator() {
+            slideIndicator.textContent = `Slide ${currentSlide} / ${TOTAL_SLIDES}`;
+        }
+
+        function goToSlide(num) {
+            if (num < 1 || num > TOTAL_SLIDES) return;
+            currentSlide = num;
+            updateSlideIndicator();
+
+            // Method 1: If you use a Number input in your State Machine to control slides
+            if (slideInput) {
+                slideInput.value = currentSlide;
+            }
+
+            // Method 2: If you use separate animations per slide (uncomment if needed)
+            // riveInstance.play(`slide_${currentSlide}`);
+        }
+
+        try {
+            riveInstance = new rive.Rive({
+                // IMPORTANT: Change this path to match your .riv file name
+                src: './wordpress_case_study_rive.riv',
+                canvas: canvas,
+                autoplay: true,
+                // IMPORTANT: Change this to match your State Machine name in Rive
+                stateMachines: 'State machine',
+                fit: rive.Fit.Contain,
+                alignment: rive.Alignment.Center,
+
+                onLoad: () => {
+                    loading.style.display = 'none';
+                    controls.style.display = 'flex';
+
+                    // Resize canvas to match wrapper
+                    const wrapper = canvas.parentElement;
+                    canvas.width = wrapper.offsetWidth * window.devicePixelRatio;
+                    canvas.height = wrapper.offsetHeight * window.devicePixelRatio;
+                    riveInstance.resizeDrawingSurfaceToCanvas();
+
+                    // Try to get State Machine inputs
+                    try {
+                        const inputs = riveInstance.stateMachineInputs('State machine');
+                        if (inputs) {
+                            // Look for a number input named "slide" (adjust name to match yours)
+                            slideInput = inputs.find(i => i.name === 'slide');
+                            
+                            // If you use trigger inputs per slide instead:
+                            // nextTrigger = inputs.find(i => i.name === 'next');
+                            // prevTrigger = inputs.find(i => i.name === 'prev');
+                        }
+                    } catch (e) {
+                        console.log('No state machine inputs found, using animation playback');
+                    }
+
+                    updateSlideIndicator();
+                },
+
+                onLoadError: () => {
+                    loading.style.display = 'none';
+                    error.style.display = 'block';
+                },
+            });
+
+            // Listen for Rive events (e.g., CTA button click)
+            riveInstance.on(rive.EventType.RiveEvent, (event) => {
+                if (event.data.name === 'openDiscoveryCall') {
+                    window.open('https://yourwebteam.io/call', '_blank');
+                }
+            });
+
+        } catch (e) {
+            loading.style.display = 'none';
+            error.style.display = 'block';
+            console.error('Rive init error:', e);
+        }
+
+        // Button controls
+        document.getElementById('btn-prev').addEventListener('click', () => {
+            goToSlide(currentSlide - 1);
+        });
+
+        document.getElementById('btn-next').addEventListener('click', () => {
+            goToSlide(currentSlide + 1);
+        });
+
+        document.getElementById('btn-replay').addEventListener('click', () => {
+            goToSlide(1);
+        });
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') {
+                e.preventDefault();
+                goToSlide(currentSlide + 1);
+            }
+            if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                goToSlide(currentSlide - 1);
+            }
+            if (e.key === 'r' || e.key === 'R') {
+                goToSlide(1);
+            }
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            if (riveInstance) {
+                const wrapper = canvas.parentElement;
+                canvas.width = wrapper.offsetWidth * window.devicePixelRatio;
+                canvas.height = wrapper.offsetHeight * window.devicePixelRatio;
+                riveInstance.resizeDrawingSurfaceToCanvas();
+            }
+        });
+    </script>
+
+</body>
+</html>
