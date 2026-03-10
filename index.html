@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Case Study — YourWebTeam.io</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
     <style>
@@ -12,14 +12,17 @@
             background: #0A0B1A; font-family: 'DM Sans', sans-serif;
         }
 
-        /* ========== FULLSCREEN CANVAS ========== */
+        /* ========== RIVE CANVAS — 16:9 centered ========== */
+        body {
+            display: flex; align-items: center; justify-content: center;
+        }
+        #canvas-wrap {
+            position: relative;
+            width: 100vw; height: 56.25vw; /* 16:9 based on width */
+            max-height: 100vh; max-width: 177.78vh; /* 16:9 based on height */
+        }
         #canvas {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            width: 100% !important;
-            height: 100% !important;
-            display: block;
-            background: #0A0B1A;
+            display: block; width: 100%; height: 100%;
         }
 
         /* ========== START SCREEN ========== */
@@ -34,8 +37,6 @@
         #start-screen.hidden {
             opacity: 0; visibility: hidden; pointer-events: none;
         }
-
-        /* Ambient glow */
         #start-screen::before {
             content: ''; position: absolute;
             width: 500px; height: 500px; border-radius: 50%;
@@ -43,7 +44,6 @@
             top: 50%; left: 50%; transform: translate(-50%, -50%);
             pointer-events: none;
         }
-
         .start-logo {
             width: 80px; height: auto; margin-bottom: 32px;
             opacity: 0; animation: fadeUp 0.8s 0.2s ease forwards;
@@ -58,7 +58,6 @@
             margin-bottom: 40px; text-align: center;
             opacity: 0; animation: fadeUp 0.8s 0.6s ease forwards;
         }
-
         .start-button {
             display: flex; align-items: center; gap: 12px;
             padding: 16px 40px; border-radius: 50px;
@@ -75,22 +74,18 @@
             box-shadow: 0 12px 40px rgba(17,98,236,0.4);
         }
         .start-button:active { transform: scale(0.98); }
-
-        /* Play icon */
         .play-icon {
-            width: 0; height: 0;
-            border-style: solid;
+            width: 0; height: 0; border-style: solid;
             border-width: 8px 0 8px 14px;
             border-color: transparent transparent transparent #fff;
         }
-
         .start-hint {
             position: absolute; bottom: 32px;
             color: #555; font-size: 12px;
             opacity: 0; animation: fadeUp 0.8s 1s ease forwards;
         }
 
-        /* ========== LOADING OVERLAY ========== */
+        /* ========== LOADING ========== */
         #loader {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             background: #0A0B1A; z-index: 50;
@@ -116,9 +111,8 @@
 </head>
 <body>
 
-    <!-- START SCREEN — user clicks to enable audio -->
+    <!-- START SCREEN -->
     <div id="start-screen">
-        <!-- YWT Logo SVG inline -->
         <svg class="start-logo" viewBox="0 0 127 77" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M98.436 24.5196V29.2208H91.9299V48.6089H85.9484V29.2208H79.4423V24.5196H98.436Z" fill="#001042"/>
             <path d="M0 34.7698C2.23162 34.5873 3.90534 33.9941 5.02115 32.9902C6.18346 31.9864 6.76461 30.6403 6.76461 28.952C6.76461 27.0356 6.55539 24.275 6.13696 20.6702C5.67204 16.381 5.43958 13.2554 5.43958 11.2933C5.43958 7.73422 6.5089 4.97363 8.64754 3.01156C10.8327 1.00385 13.7152 0 17.2951 0L32.0796 0V8.07645H19.178C16.2955 8.07645 14.8542 9.42252 14.8542 12.1147C14.8542 13.3923 15.0402 15.9476 15.4121 19.7804C15.4586 20.2367 15.5749 21.5372 15.7608 23.6818C15.9468 25.7807 16.0398 27.6516 16.0398 29.2942C16.0398 31.7126 15.4354 33.7203 14.2266 35.3173C13.0178 36.9144 11.1814 37.941 8.71728 38.3973V38.5342C11.1814 39.0361 13.0178 40.0856 14.2266 41.6827C15.4354 43.2341 16.0398 45.2418 16.0398 47.7058C16.0398 49.2572 15.9468 51.1052 15.7608 53.2498C15.5749 55.3487 15.4586 56.672 15.4121 57.2196C15.0402 61.0524 14.8542 63.5849 14.8542 64.8169C14.8542 66.2314 15.2029 67.2581 15.9003 67.8969C16.5977 68.5357 17.6903 68.8551 19.178 68.8551H32.0796V77H17.2951C13.7152 77 10.8327 75.9961 8.64754 73.9884C6.5089 72.0264 5.43958 69.2658 5.43958 65.7067C5.43958 63.699 5.67204 60.5505 6.13696 56.2613C6.55539 52.6566 6.76461 49.9188 6.76461 48.048C6.76461 46.3597 6.18346 45.0136 5.02115 44.0098C3.90534 43.0059 2.23162 42.4127 0 42.2302V34.7698Z" fill="url(#p0)"/>
@@ -135,52 +129,41 @@
                 <linearGradient id="p2" x1="127" y1="-7.46" x2="113.136" y2="67.957" gradientUnits="userSpaceOnUse"><stop stop-color="#E61D6B"/><stop offset="1" stop-color="#8C053C"/></linearGradient>
             </defs>
         </svg>
-
         <div class="start-title">WordPress Case Study</div>
         <div class="start-subtitle">50-Plugin Nightmare → $250K Revenue Machine</div>
-
         <button class="start-button" id="start-btn">
             <div class="play-icon"></div>
             Watch Presentation
         </button>
-
         <div class="start-hint">Click to start with audio</div>
     </div>
 
-    <!-- LOADING OVERLAY -->
+    <!-- LOADING -->
     <div id="loader" style="display:none;">
         <div class="spinner"></div>
         <div class="loader-text">Loading animation...</div>
     </div>
 
-    <canvas id="canvas"></canvas>
+    <!-- CANVAS -->
+    <div id="canvas-wrap">
+        <canvas id="canvas"></canvas>
+    </div>
 
     <script>
         var RIV_FILE = './wordpress_case_study_rive.riv';
         var canvas = document.getElementById('canvas');
+        var wrap = document.getElementById('canvas-wrap');
         var startScreen = document.getElementById('start-screen');
         var loader = document.getElementById('loader');
         var riveInstance = null;
 
-        // Size canvas to fill viewport exactly
         function sizeCanvas() {
             var dpr = window.devicePixelRatio || 1;
-            var w = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
-            var h = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
+            var w = wrap.offsetWidth;
+            var h = wrap.offsetHeight;
             canvas.width = w * dpr;
             canvas.height = h * dpr;
-            canvas.style.width = w + 'px';
-            canvas.style.height = h + 'px';
-            if (riveInstance) {
-                riveInstance.resizeDrawingSurfaceToCanvas();
-                // Re-apply layout on resize
-                try {
-                    riveInstance.layout = new rive.Layout({
-                        fit: rive.Fit.Cover,
-                        alignment: rive.Alignment.Center,
-                    });
-                } catch(e) {}
-            }
+            if (riveInstance) riveInstance.resizeDrawingSurfaceToCanvas();
         }
 
         function loadScript(url) {
@@ -191,7 +174,6 @@
             });
         }
 
-        // User clicks start → hide start screen, show loader, init Rive
         document.getElementById('start-btn').addEventListener('click', startPresentation);
         startScreen.addEventListener('click', function(e) {
             if (e.target === startScreen) startPresentation();
@@ -200,9 +182,7 @@
         async function startPresentation() {
             startScreen.classList.add('hidden');
             loader.style.display = 'flex';
-            sizeCanvas();
 
-            // Load WebGL runtime
             var cdns = [
                 'https://unpkg.com/@rive-app/webgl@2.33.1/rive.js',
                 'https://cdn.jsdelivr.net/npm/@rive-app/webgl@2.33.1/rive.js',
@@ -214,28 +194,23 @@
                     if (typeof rive !== 'undefined') break;
                 } catch(e) {}
             }
-
             if (typeof rive === 'undefined') {
                 document.querySelector('.loader-text').textContent = 'Failed to load. Please refresh.';
                 return;
             }
 
-            // Init Rive — fullscreen, edge to edge
+            sizeCanvas();
+
             riveInstance = new rive.Rive({
                 src: RIV_FILE,
                 canvas: canvas,
                 autoplay: true,
                 stateMachines: 'State machine',
                 layout: new rive.Layout({
-                    fit: rive.Fit.Cover,
+                    fit: rive.Fit.Contain,
                     alignment: rive.Alignment.Center,
                 }),
                 onLoad: function() {
-                    // Force layout update after load
-                    riveInstance.layout = new rive.Layout({
-                        fit: rive.Fit.Cover,
-                        alignment: rive.Alignment.Center,
-                    });
                     sizeCanvas();
                     loader.classList.add('hidden');
                 },
@@ -245,7 +220,6 @@
                 }
             });
 
-            // CTA event
             try {
                 riveInstance.on(rive.EventType.RiveEvent, function(event) {
                     if (event.data.name === 'openDiscoveryCall') {
@@ -255,7 +229,6 @@
             } catch(e) {}
         }
 
-        // Resize
         window.addEventListener('resize', sizeCanvas);
     </script>
 </body>
