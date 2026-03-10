@@ -14,9 +14,12 @@
 
         /* ========== FULLSCREEN CANVAS ========== */
         #canvas {
-            position: fixed; top: 0; left: 0;
-            width: 100vw !important; height: 100vh !important;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            width: 100% !important;
+            height: 100% !important;
             display: block;
+            background: #0A0B1A;
         }
 
         /* ========== START SCREEN ========== */
@@ -162,11 +165,22 @@
         // Size canvas to fill viewport exactly
         function sizeCanvas() {
             var dpr = window.devicePixelRatio || 1;
-            canvas.width = window.innerWidth * dpr;
-            canvas.height = window.innerHeight * dpr;
-            canvas.style.width = window.innerWidth + 'px';
-            canvas.style.height = window.innerHeight + 'px';
-            if (riveInstance) riveInstance.resizeDrawingSurfaceToCanvas();
+            var w = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
+            var h = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
+            canvas.width = w * dpr;
+            canvas.height = h * dpr;
+            canvas.style.width = w + 'px';
+            canvas.style.height = h + 'px';
+            if (riveInstance) {
+                riveInstance.resizeDrawingSurfaceToCanvas();
+                // Re-apply layout on resize
+                try {
+                    riveInstance.layout = new rive.Layout({
+                        fit: rive.Fit.Cover,
+                        alignment: rive.Alignment.Center,
+                    });
+                } catch(e) {}
+            }
         }
 
         function loadScript(url) {
@@ -212,9 +226,16 @@
                 canvas: canvas,
                 autoplay: true,
                 stateMachines: 'State machine',
-                fit: rive.Fit.Fill,
-                alignment: rive.Alignment.Center,
+                layout: new rive.Layout({
+                    fit: rive.Fit.Cover,
+                    alignment: rive.Alignment.Center,
+                }),
                 onLoad: function() {
+                    // Force layout update after load
+                    riveInstance.layout = new rive.Layout({
+                        fit: rive.Fit.Cover,
+                        alignment: rive.Alignment.Center,
+                    });
                     sizeCanvas();
                     loader.classList.add('hidden');
                 },
